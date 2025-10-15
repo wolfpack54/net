@@ -1,0 +1,215 @@
+# Multi-Repository Clone and Execute Workflow
+
+A GitHub Actions workflow that clones two repositories and executes custom commands after cloning, designed to run on IFMDEV runners.
+
+## Overview
+
+This workflow allows you to:
+- Clone exactly two repositories in a single job
+- Execute custom PowerShell commands after both repositories are cloned
+- Handle both public and private repositories with proper authentication
+- Run on IFMDEV runners with comprehensive error handling and logging
+
+## Usage
+
+### Running the Workflow
+
+1. Navigate to the **Actions** tab in your GitHub repository
+2. Find the **"Multi-Repository Clone and Execute"** workflow
+3. Click **"Run workflow"**
+4. Fill in the required inputs:
+
+### Input Parameters
+
+| Parameter | Description | Required | Default |
+|-----------|-------------|----------|---------|
+| `repo1_url` | First repository URL (e.g., `owner/repo1` or full URL) | ✅ Yes | - |
+| `repo1_ref` | Branch/tag/commit for first repo | ❌ No | `main` |
+| `repo2_url` | Second repository URL (e.g., `owner/repo2` or full URL) | ✅ Yes | - |
+| `repo2_ref` | Branch/tag/commit for second repo | ❌ No | `main` |
+| `commands` | PowerShell commands to execute (one per line) | ✅ Yes | - |
+
+### Repository URL Formats
+
+You can specify repositories in several formats:
+- **Short format**: `owner/repository-name`
+- **Full GitHub URL**: `https://github.com/owner/repository-name.git`
+- **SSH format**: `git@github.com:owner/repository-name.git`
+
+### Example Usage
+
+#### Basic Example
+```yaml
+repo1_url: microsoft/vscode
+repo1_ref: main
+repo2_url: microsoft/TypeScript
+repo2_ref: main
+commands: |
+  Get-ChildItem repo1
+  Get-ChildItem repo2
+  Write-Host "Both repositories cloned successfully!"
+```
+
+#### Advanced Example with File Operations
+```yaml
+repo1_url: owner/source-repo
+repo1_ref: develop
+repo2_url: owner/target-repo
+repo2_ref: feature-branch
+commands: |
+  # List contents of both repositories
+  Write-Host "Source repository contents:"
+  Get-ChildItem repo1 -Recurse | Select-Object Name, FullName
+  
+  Write-Host "Target repository contents:"
+  Get-ChildItem repo2 -Recurse | Select-Object Name, FullName
+  
+  # Copy files from source to target
+  Copy-Item "repo1\src\*" "repo2\src\" -Recurse -Force
+  
+  # Run tests or build commands
+  Set-Location repo2
+  npm install
+  npm test
+```
+
+## Directory Structure
+
+After cloning, the workspace will have the following structure:
+
+```
+$GITHUB_WORKSPACE/
+├── repo1/              # First repository clone
+│   ├── [repo1 files]
+│   └── ...
+├── repo2/              # Second repository clone
+│   ├── [repo2 files]
+│   └── ...
+└── [other workflow files]
+```
+
+## Environment Variables
+
+The workflow sets up these environment variables for easy access:
+
+- `$env:REPO1_PATH` - Full path to the first repository
+- `$env:REPO2_PATH` - Full path to the second repository
+
+You can use these in your commands:
+```powershell
+Set-Location $env:REPO1_PATH
+Get-ChildItem $env:REPO2_PATH
+```
+
+## Authentication
+
+### Public Repositories
+For public repositories, the workflow uses the default `GITHUB_TOKEN` automatically.
+
+### Private Repositories
+For private repositories, you have two options:
+
+1. **Use default token** (if the repositories are in the same organization):
+   - No additional setup required
+   - The workflow will use `GITHUB_TOKEN`
+
+2. **Use custom Personal Access Token**:
+   - Create a Personal Access Token with `repo` scope
+   - Add it as a repository secret named `CUSTOM_TOKEN`
+   - The workflow will automatically use `CUSTOM_TOKEN` if available
+
+## Error Handling
+
+The workflow includes comprehensive error handling:
+
+- **Clone failures**: If either repository fails to clone, the workflow stops with a clear error message
+- **Command failures**: If any command fails, the workflow stops and reports which command failed
+- **Path verification**: Verifies that both repositories were cloned successfully before executing commands
+- **PowerShell error handling**: Uses `$ErrorActionPreference = 'Stop'` to catch all errors
+
+## Logging and Debugging
+
+The workflow provides detailed logging:
+
+- Repository clone verification with paths
+- Directory contents listing for both repositories
+- Command execution progress with numbered steps
+- Success/failure status for each command
+- Detailed error messages when failures occur
+
+## Common Use Cases
+
+### 1. Cross-Repository Testing
+```powershell
+# Test compatibility between two repositories
+Set-Location repo1
+npm test
+Set-Location ..\repo2
+npm test
+```
+
+### 2. File Synchronization
+```powershell
+# Sync files from one repo to another
+Copy-Item "repo1\shared\*" "repo2\shared\" -Recurse -Force
+```
+
+### 3. Build Pipeline
+```powershell
+# Build both repositories
+Set-Location repo1
+dotnet build
+Set-Location ..\repo2
+dotnet build
+```
+
+### 4. Documentation Generation
+```powershell
+# Generate docs from multiple sources
+Copy-Item "repo1\docs\*" "repo2\combined-docs\repo1\" -Recurse
+Copy-Item "repo2\docs\*" "repo2\combined-docs\repo2\" -Recurse
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Repository not found**
+   - Verify the repository URL is correct
+   - Check if you have access to private repositories
+   - Ensure `CUSTOM_TOKEN` is set for private repos
+
+2. **Command execution fails**
+   - Check PowerShell syntax in your commands
+   - Verify file paths exist before accessing them
+   - Use absolute paths when needed
+
+3. **Authentication errors**
+   - For private repos, ensure `CUSTOM_TOKEN` secret is configured
+   - Verify the token has appropriate permissions
+
+### Debug Tips
+
+- Use `Get-ChildItem` to list directory contents
+- Use `Test-Path` to verify file/directory existence
+- Add `Write-Host` statements for debugging
+- Check the workflow logs for detailed error messages
+
+## Limitations
+
+- Runs on IFMDEV runners only
+- Supports exactly two repositories per run
+- Commands are executed sequentially (not in parallel)
+- PowerShell commands only (Windows environment)
+
+## Contributing
+
+To modify this workflow:
+
+1. Edit `.github/workflows/multi-repo-clone.yml`
+2. Test changes with sample repositories
+3. Update this README if adding new features
+
+## License
+
+This workflow is provided as-is for internal use.
